@@ -15,6 +15,7 @@ import DashboardLayout from './components/layout/DashboardLayout';
 
 import Dashboard from './pages/dashboard/Dashboard';
 import Courses from './pages/courses/Courses';
+import CourseDetails from './pages/courses/CourseDetails';
 import Students from './pages/students/Students';
 import Instructors from './pages/instructors/Instructors';
 import Enrollments from './pages/enrollments/Enrollments';
@@ -50,6 +51,7 @@ function App() {
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/courses" element={<Courses />} />
+                <Route path="/courses/:id" element={<CourseDetails />} />
                 <Route path="/students" element={<Students />} />
                 <Route path="/instructors" element={<Instructors />} />
                 <Route path="/enrollments" element={<Enrollments />} />
