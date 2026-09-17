@@ -17,9 +17,26 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 
+const getInitials = (name = '') => {
+  if (!name) return 'AM';
+  const parts = name.trim().split(' ').filter(Boolean);
+  const cleanParts = parts.filter((p) => !['dr.', 'dr', 'mr.', 'mr', 'mrs.', 'mrs', 'prof.', 'prof'].includes(p.toLowerCase()));
+  const targetParts = cleanParts.length > 0 ? cleanParts : parts;
+  if (targetParts.length === 1) {
+    return targetParts[0].substring(0, 2).toUpperCase();
+  }
+  const first = targetParts[0]?.[0] || '';
+  const last = targetParts[targetParts.length - 1]?.[0] || '';
+  return (first + last).toUpperCase() || 'AM';
+};
+
 const Sidebar = ({ isCollapsed, mobileOpen, onCloseMobile, onToggleCollapse }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const userName = user?.name || 'Alex Morgan';
+  const userRole = user?.role || 'Administrator';
+  const userInitials = getInitials(userName);
 
   const handleLogout = () => {
     logout();
@@ -145,15 +162,16 @@ const Sidebar = ({ isCollapsed, mobileOpen, onCloseMobile, onToggleCollapse }) =
             isCollapsed ? 'justify-center p-2' : 'justify-between p-2.5'
           }`}>
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <img
-                src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
-                alt={user?.name || 'User'}
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500/50 shrink-0"
-              />
+              <div
+                className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-700 via-emerald-600 to-[#10B981] text-white flex items-center justify-center font-extrabold text-xs tracking-wider ring-2 ring-emerald-500/50 shrink-0 select-none shadow-xs"
+                title={userName}
+              >
+                {userInitials}
+              </div>
               {!isCollapsed && (
                 <div className="truncate">
-                  <p className="text-xs font-semibold text-white truncate">{user?.name || 'Alex Morgan'}</p>
-                  <p className="text-[11px] text-emerald-400/90 truncate">{user?.role || 'Administrator'}</p>
+                  <p className="text-xs font-semibold text-white truncate">{userName}</p>
+                  <p className="text-[11px] text-emerald-400/90 truncate">{userRole}</p>
                 </div>
               )}
             </div>

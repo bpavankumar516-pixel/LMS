@@ -3,9 +3,26 @@ import { Search, Bell, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLMS } from '../../context/LMSContext';
 
+const getInitials = (name = '') => {
+  if (!name) return 'AM';
+  const parts = name.trim().split(' ').filter(Boolean);
+  const cleanParts = parts.filter((p) => !['dr.', 'dr', 'mr.', 'mr', 'mrs.', 'mrs', 'prof.', 'prof'].includes(p.toLowerCase()));
+  const targetParts = cleanParts.length > 0 ? cleanParts : parts;
+  if (targetParts.length === 1) {
+    return targetParts[0].substring(0, 2).toUpperCase();
+  }
+  const first = targetParts[0]?.[0] || '';
+  const last = targetParts[targetParts.length - 1]?.[0] || '';
+  return (first + last).toUpperCase() || 'AM';
+};
+
 const Navbar = ({ onOpenMobile }) => {
   const { user } = useAuth();
   const { searchQuery, setSearchQuery } = useLMS();
+
+  const userName = user?.name || 'Alex Morgan';
+  const userRole = user?.role || 'Administrator';
+  const userInitials = getInitials(userName);
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200/80 px-4 lg:px-8 flex items-center shadow-2xs">
@@ -43,16 +60,17 @@ const Navbar = ({ onOpenMobile }) => {
 
           <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
-          {/* User Profile Badge */}
-          <div className="flex items-center gap-3 pl-1">
-            <img
-              src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
-              alt={user?.name || 'User'}
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500/20"
-            />
+          {/* User Profile Badge (Name-Based Initials Avatar - No Image) */}
+          <div className="flex items-center gap-3 pl-1 cursor-default">
+            <div
+              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#0B2522] via-[#047857] to-[#10B981] text-white flex items-center justify-center font-extrabold text-xs tracking-wider shadow-xs ring-2 ring-emerald-500/30 select-none shrink-0"
+              title={userName}
+            >
+              {userInitials}
+            </div>
             <div className="hidden sm:block text-left">
-              <p className="text-xs font-bold text-slate-800 leading-tight">{user?.name || 'Alex Morgan'}</p>
-              <p className="text-[11px] text-slate-500 font-medium">{user?.role || 'Administrator'}</p>
+              <p className="text-xs font-bold text-slate-800 leading-tight">{userName}</p>
+              <p className="text-[11px] text-slate-500 font-medium">{userRole}</p>
             </div>
           </div>
         </div>

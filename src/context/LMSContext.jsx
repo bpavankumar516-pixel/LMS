@@ -7,6 +7,7 @@ import {
   deleteStudentApi
 } from '../services/studentApi';
 import { getEnrollmentsFromStorage, saveEnrollmentsToStorage } from '../services/enrollmentApi';
+import { getInstructorsFromStorage, saveInstructorsToStorage } from '../services/instructorApi';
 import { toast } from 'react-toastify';
 
 const LMSContext = createContext();
@@ -23,6 +24,11 @@ export const LMSProvider = ({ children }) => {
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [errorStudents, setErrorStudents] = useState(null);
+
+  // Instructor State (Module 6)
+  const [instructors, setInstructors] = useState([]);
+  const [loadingInstructors, setLoadingInstructors] = useState(true);
+  const [errorInstructors, setErrorInstructors] = useState(null);
 
   // Enrollment State (Module 5)
   const [enrollments, setEnrollments] = useState([]);
@@ -110,6 +116,7 @@ export const LMSProvider = ({ children }) => {
   const initLmsData = async () => {
     setLoadingCourses(true);
     setLoadingStudents(true);
+    setLoadingInstructors(true);
     setLoadingEnrollments(true);
 
     try {
@@ -123,6 +130,11 @@ export const LMSProvider = ({ children }) => {
       setStats((prev) => ({ ...prev, totalStudents: loadedStudents.length }));
       setLoadingStudents(false);
 
+      const loadedInstructors = await getInstructorsFromStorage();
+      setInstructors(loadedInstructors);
+      setStats((prev) => ({ ...prev, totalInstructors: loadedInstructors.length }));
+      setLoadingInstructors(false);
+
       const loadedEnrollments = await getEnrollmentsFromStorage(loadedStudents, loadedCourses);
       setEnrollments(loadedEnrollments);
       setStats((prev) => ({ ...prev, enrolledCourses: loadedEnrollments.length }));
@@ -131,6 +143,7 @@ export const LMSProvider = ({ children }) => {
       console.error('Error initializing LMS data:', err);
       setLoadingCourses(false);
       setLoadingStudents(false);
+      setLoadingInstructors(false);
       setLoadingEnrollments(false);
     }
   };
@@ -152,6 +165,16 @@ export const LMSProvider = ({ children }) => {
       setStats((prev) => ({ ...prev, totalStudents: data.length }));
     } catch (err) {
       setErrorStudents('Failed to load student records.');
+    }
+  };
+
+  const loadInstructors = async () => {
+    try {
+      const data = await getInstructorsFromStorage();
+      setInstructors(data);
+      setStats((prev) => ({ ...prev, totalInstructors: data.length }));
+    } catch (err) {
+      setErrorInstructors('Failed to load instructors.');
     }
   };
 
@@ -254,6 +277,63 @@ export const LMSProvider = ({ children }) => {
     } catch (err) {
       toast.error('Failed to delete student.');
     }
+  };
+
+  // Module 6: Instructor CRUD & Course Assignment Handlers
+  const addInstructor = (data) => {
+    const newInstructor = {
+      id: `inst-${Date.now()}`,
+      name: data.name,
+      email: data.email,
+      phone: data.phone || '+1 (555) 000-0000',
+      experience: data.experience || '3 Years',
+      specialization: data.specialization || 'Full Stack Development',
+      rating: parseFloat(data.rating) || 4.8,
+      studentsTaught: parseInt(data.studentsTaught) || 120,
+      image: data.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      bio: data.bio || 'Professional LMS Instructor dedicated to excellence in teaching.',
+      assignedCourseIds: Array.isArray(data.assignedCourseIds) ? data.assignedCourseIds : []
+    };
+
+    const updated = [newInstructor, ...instructors];
+    setInstructors(updated);
+    saveInstructorsToStorage(updated);
+    setStats((prev) => ({ ...prev, totalInstructors: updated.length }));
+    addActivity('New Instructor Added', newInstructor.name, 'instructor');
+    toast.success(`Instructor "${newInstructor.name}" added successfully!`);
+    return newInstructor;
+  };
+
+  const updateInstructor = (id, updatedFields) => {
+    const updated = instructors.map((inst) =>
+      inst.id.toString() === id.toString()
+        ? { ...inst, ...updatedFields }
+        : inst
+    );
+    setInstructors(updated);
+    saveInstructorsToStorage(updated);
+    toast.success('Instructor profile updated!');
+  };
+
+  const deleteInstructor = (id) => {
+    const instToDelete = instructors.find((inst) => inst.id.toString() === id.toString());
+    const updated = instructors.filter((inst) => inst.id.toString() !== id.toString());
+    setInstructors(updated);
+    saveInstructorsToStorage(updated);
+    setStats((prev) => ({ ...prev, totalInstructors: updated.length }));
+    toast.info(`Instructor "${instToDelete?.name || ''}" removed.`);
+  };
+
+  const assignCoursesToInstructor = (instructorId, courseIds = []) => {
+    const updated = instructors.map((inst) => {
+      if (inst.id.toString() === instructorId.toString()) {
+        return { ...inst, assignedCourseIds: courseIds };
+      }
+      return inst;
+    });
+    setInstructors(updated);
+    saveInstructorsToStorage(updated);
+    toast.success('Assigned courses updated for instructor!');
   };
 
   // Module 5: Course Enrollment Handlers & Status Updates
@@ -368,6 +448,14 @@ export const LMSProvider = ({ children }) => {
     addStudent,
     updateStudent,
     deleteStudent,
+    instructors,
+    loadingInstructors,
+    errorInstructors,
+    loadInstructors,
+    addInstructor,
+    updateInstructor,
+    deleteInstructor,
+    assignCoursesToInstructor,
     enrollments,
     loadingEnrollments,
     errorEnrollments,
