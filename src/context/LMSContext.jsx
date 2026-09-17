@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getCoursesFromMockApi, saveCoursesToStorage } from '../services/courseApi';
+import {
+  getStudentsFromApi,
+  addStudentApi,
+  updateStudentApi,
+  deleteStudentApi
+} from '../services/studentApi';
 import { toast } from 'react-toastify';
 
 const LMSContext = createContext();
@@ -12,11 +18,16 @@ export const LMSProvider = ({ children }) => {
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [errorCourses, setErrorCourses] = useState(null);
 
-  // Stats matching UI screenshot
+  // Student State (Module 4)
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [errorStudents, setErrorStudents] = useState(null);
+
+  // Stats
   const [stats, setStats] = useState({
     totalCourses: 12,
     totalCoursesChange: '+ 12% from last month',
-    totalStudents: 248,
+    totalStudents: 30,
     totalStudentsChange: '+ 10% from last month',
     totalInstructors: 8,
     totalInstructorsChange: '+ 15% from last month',
@@ -85,9 +96,10 @@ export const LMSProvider = ({ children }) => {
   // Search input state
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Initial Course Load from MockAPI / Storage
+  // Initial Data Load
   useEffect(() => {
     loadCourses();
+    loadStudents();
   }, []);
 
   const loadCourses = async () => {
@@ -99,12 +111,26 @@ export const LMSProvider = ({ children }) => {
       setStats((prev) => ({ ...prev, totalCourses: data.length }));
       setLoadingCourses(false);
     } catch (err) {
-      setErrorCourses('Failed to load courses from MockAPI.');
+      setErrorCourses('Failed to load courses.');
       setLoadingCourses(false);
     }
   };
 
-  // Add Course Handler
+  const loadStudents = async () => {
+    setLoadingStudents(true);
+    setErrorStudents(null);
+    try {
+      const data = await getStudentsFromApi();
+      setStudents(data);
+      setStats((prev) => ({ ...prev, totalStudents: data.length }));
+      setLoadingStudents(false);
+    } catch (err) {
+      setErrorStudents('Failed to load student records from DummyJSON API.');
+      setLoadingStudents(false);
+    }
+  };
+
+  // Course CRUD Handlers
   const addCourse = (courseData) => {
     const newCourse = {
       id: String(Date.now()),
@@ -130,7 +156,6 @@ export const LMSProvider = ({ children }) => {
     return newCourse;
   };
 
-  // Update Course Handler
   const updateCourse = (id, updatedFields) => {
     const updated = courses.map((c) =>
       c.id.toString() === id.toString()
@@ -142,7 +167,6 @@ export const LMSProvider = ({ children }) => {
     toast.success('Course updated successfully!');
   };
 
-  // Delete Course Handler
   const deleteCourse = (id) => {
     const courseToDelete = courses.find((c) => c.id.toString() === id.toString());
     const updated = courses.filter((c) => c.id.toString() !== id.toString());
@@ -150,6 +174,51 @@ export const LMSProvider = ({ children }) => {
     saveCoursesToStorage(updated);
     setStats((prev) => ({ ...prev, totalCourses: updated.length }));
     toast.info(`Course "${courseToDelete?.title || ''}" deleted.`);
+  };
+
+  // Module 4: Student Real HTTP API CRUD Handlers (DummyJSON Users API)
+  const addStudent = async (studentData) => {
+    try {
+      const newStudent = await addStudentApi(studentData);
+      const updated = [newStudent, ...students];
+      setStudents(updated);
+      localStorage.setItem('lms_students', JSON.stringify(updated));
+      setStats((prev) => ({ ...prev, totalStudents: updated.length }));
+
+      addActivity('New Student Registered (HTTP POST)', newStudent.name, 'user');
+      toast.success(`Student "${newStudent.name}" registered via DummyJSON API!`);
+      return newStudent;
+    } catch (err) {
+      toast.error('Failed to register student on API.');
+    }
+  };
+
+  const updateStudent = async (id, updatedFields) => {
+    try {
+      await updateStudentApi(id, updatedFields);
+      const updated = students.map((s) =>
+        s.id.toString() === id.toString() ? { ...s, ...updatedFields } : s
+      );
+      setStudents(updated);
+      localStorage.setItem('lms_students', JSON.stringify(updated));
+      toast.success('Student record updated via DummyJSON API (HTTP PUT)!');
+    } catch (err) {
+      toast.error('Failed to update student on API.');
+    }
+  };
+
+  const deleteStudent = async (id) => {
+    try {
+      const studentToDelete = students.find((s) => s.id.toString() === id.toString());
+      await deleteStudentApi(id);
+      const updated = students.filter((s) => s.id.toString() !== id.toString());
+      setStudents(updated);
+      localStorage.setItem('lms_students', JSON.stringify(updated));
+      setStats((prev) => ({ ...prev, totalStudents: updated.length }));
+      toast.info(`Student "${studentToDelete?.name || ''}" deleted via DummyJSON API (HTTP DELETE)!`);
+    } catch (err) {
+      toast.error('Failed to delete student from API.');
+    }
   };
 
   // Activity Helper
@@ -178,6 +247,13 @@ export const LMSProvider = ({ children }) => {
     addCourse,
     updateCourse,
     deleteCourse,
+    students,
+    loadingStudents,
+    errorStudents,
+    loadStudents,
+    addStudent,
+    updateStudent,
+    deleteStudent,
     addActivity
   };
 
