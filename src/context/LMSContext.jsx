@@ -6,6 +6,7 @@ import {
   updateStudentApi,
   deleteStudentApi
 } from '../services/studentApi';
+import { getEnrollmentsFromStorage, saveEnrollmentsToStorage } from '../services/enrollmentApi';
 import { toast } from 'react-toastify';
 
 const LMSContext = createContext();
@@ -22,6 +23,11 @@ export const LMSProvider = ({ children }) => {
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [errorStudents, setErrorStudents] = useState(null);
+
+  // Enrollment State (Module 5)
+  const [enrollments, setEnrollments] = useState([]);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(true);
+  const [errorEnrollments, setErrorEnrollments] = useState(null);
 
   // Stats
   const [stats, setStats] = useState({
@@ -98,35 +104,64 @@ export const LMSProvider = ({ children }) => {
 
   // Initial Data Load
   useEffect(() => {
-    loadCourses();
-    loadStudents();
+    initLmsData();
   }, []);
 
-  const loadCourses = async () => {
+  const initLmsData = async () => {
     setLoadingCourses(true);
-    setErrorCourses(null);
+    setLoadingStudents(true);
+    setLoadingEnrollments(true);
+
+    try {
+      const loadedCourses = await getCoursesFromMockApi();
+      setCourses(loadedCourses);
+      setStats((prev) => ({ ...prev, totalCourses: loadedCourses.length }));
+      setLoadingCourses(false);
+
+      const loadedStudents = await getStudentsFromApi();
+      setStudents(loadedStudents);
+      setStats((prev) => ({ ...prev, totalStudents: loadedStudents.length }));
+      setLoadingStudents(false);
+
+      const loadedEnrollments = await getEnrollmentsFromStorage(loadedStudents, loadedCourses);
+      setEnrollments(loadedEnrollments);
+      setStats((prev) => ({ ...prev, enrolledCourses: loadedEnrollments.length }));
+      setLoadingEnrollments(false);
+    } catch (err) {
+      console.error('Error initializing LMS data:', err);
+      setLoadingCourses(false);
+      setLoadingStudents(false);
+      setLoadingEnrollments(false);
+    }
+  };
+
+  const loadCourses = async () => {
     try {
       const data = await getCoursesFromMockApi();
       setCourses(data);
       setStats((prev) => ({ ...prev, totalCourses: data.length }));
-      setLoadingCourses(false);
     } catch (err) {
       setErrorCourses('Failed to load courses.');
-      setLoadingCourses(false);
     }
   };
 
   const loadStudents = async () => {
-    setLoadingStudents(true);
-    setErrorStudents(null);
     try {
       const data = await getStudentsFromApi();
       setStudents(data);
       setStats((prev) => ({ ...prev, totalStudents: data.length }));
-      setLoadingStudents(false);
     } catch (err) {
-      setErrorStudents('Failed to load student records from DummyJSON API.');
-      setLoadingStudents(false);
+      setErrorStudents('Failed to load student records.');
+    }
+  };
+
+  const loadEnrollments = async () => {
+    try {
+      const data = await getEnrollmentsFromStorage(students, courses);
+      setEnrollments(data);
+      setStats((prev) => ({ ...prev, enrolledCourses: data.length }));
+    } catch (err) {
+      setErrorEnrollments('Failed to load enrollment records.');
     }
   };
 
@@ -176,7 +211,7 @@ export const LMSProvider = ({ children }) => {
     toast.info(`Course "${courseToDelete?.title || ''}" deleted.`);
   };
 
-  // Module 4: Student Real HTTP API CRUD Handlers (DummyJSON Users API)
+  // Module 4: Student CRUD Handlers
   const addStudent = async (studentData) => {
     try {
       const newStudent = await addStudentApi(studentData);
@@ -185,11 +220,11 @@ export const LMSProvider = ({ children }) => {
       localStorage.setItem('lms_students', JSON.stringify(updated));
       setStats((prev) => ({ ...prev, totalStudents: updated.length }));
 
-      addActivity('New Student Registered (HTTP POST)', newStudent.name, 'user');
-      toast.success(`Student "${newStudent.name}" registered via DummyJSON API!`);
+      addActivity('New Student Registered', newStudent.name, 'user');
+      toast.success(`Student "${newStudent.name}" registered successfully!`);
       return newStudent;
     } catch (err) {
-      toast.error('Failed to register student on API.');
+      toast.error('Failed to register student.');
     }
   };
 
@@ -201,9 +236,9 @@ export const LMSProvider = ({ children }) => {
       );
       setStudents(updated);
       localStorage.setItem('lms_students', JSON.stringify(updated));
-      toast.success('Student record updated via DummyJSON API (HTTP PUT)!');
+      toast.success('Student record updated successfully!');
     } catch (err) {
-      toast.error('Failed to update student on API.');
+      toast.error('Failed to update student.');
     }
   };
 
@@ -215,10 +250,89 @@ export const LMSProvider = ({ children }) => {
       setStudents(updated);
       localStorage.setItem('lms_students', JSON.stringify(updated));
       setStats((prev) => ({ ...prev, totalStudents: updated.length }));
-      toast.info(`Student "${studentToDelete?.name || ''}" deleted via DummyJSON API (HTTP DELETE)!`);
+      toast.info(`Student "${studentToDelete?.name || ''}" deleted.`);
     } catch (err) {
-      toast.error('Failed to delete student from API.');
+      toast.error('Failed to delete student.');
     }
+  };
+
+  // Module 5: Course Enrollment Handlers & Status Updates
+  const isAlreadyEnrolled = (studentId, courseId) => {
+    return enrollments.some(
+      (e) => e.studentId.toString() === studentId.toString() && e.courseId.toString() === courseId.toString()
+    );
+  };
+
+  const enrollStudent = (studentId, courseId, enrollmentDate, status = 'Active', progress = 0) => {
+    const student = students.find((s) => s.id.toString() === studentId.toString());
+    const course = courses.find((c) => c.id.toString() === courseId.toString());
+
+    if (!student || !course) {
+      toast.error('Please select both a valid student and a valid course.');
+      return false;
+    }
+
+    if (isAlreadyEnrolled(studentId, courseId)) {
+      toast.warning(`Student "${student.name}" is ALREADY enrolled in "${course.title}". Duplicate enrollment prevented!`);
+      return false;
+    }
+
+    const newEnrollment = {
+      id: `enr-${Date.now()}`,
+      studentId: student.id,
+      studentName: student.name,
+      studentEmail: student.email,
+      studentAvatar: student.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      courseId: course.id,
+      courseTitle: course.title,
+      courseCategory: course.category,
+      coursePrice: course.price,
+      enrollmentDate: enrollmentDate || new Date().toISOString().split('T')[0],
+      status: status || 'Active',
+      progress: parseInt(progress) || 0
+    };
+
+    const updated = [newEnrollment, ...enrollments];
+    setEnrollments(updated);
+    saveEnrollmentsToStorage(updated);
+    setStats((prev) => ({ ...prev, enrolledCourses: updated.length }));
+
+    addActivity('Course Enrollment', `${student.name} enrolled in ${course.title}`, 'enrollment');
+    toast.success(`Successfully enrolled "${student.name}" into "${course.title}"!`);
+    return true;
+  };
+
+  // Edit Enrollment Handler
+  const updateEnrollment = (id, updatedFields) => {
+    const updated = enrollments.map((e) => {
+      if (e.id.toString() === id.toString()) {
+        const newProgress = parseInt(updatedFields.progress) || e.progress || 0;
+        let newStatus = updatedFields.status || e.status;
+        if (newProgress === 100 && newStatus === 'Active') {
+          newStatus = 'Completed';
+        }
+        return {
+          ...e,
+          ...updatedFields,
+          progress: newProgress,
+          status: newStatus
+        };
+      }
+      return e;
+    });
+
+    setEnrollments(updated);
+    saveEnrollmentsToStorage(updated);
+    toast.success('Enrollment details updated!');
+  };
+
+  const removeEnrollment = (enrollmentId) => {
+    const enrToDelete = enrollments.find((e) => e.id.toString() === enrollmentId.toString());
+    const updated = enrollments.filter((e) => e.id.toString() !== enrollmentId.toString());
+    setEnrollments(updated);
+    saveEnrollmentsToStorage(updated);
+    setStats((prev) => ({ ...prev, enrolledCourses: updated.length }));
+    toast.info(`Enrollment for "${enrToDelete?.studentName || ''}" in "${enrToDelete?.courseTitle || ''}" removed.`);
   };
 
   // Activity Helper
@@ -254,6 +368,14 @@ export const LMSProvider = ({ children }) => {
     addStudent,
     updateStudent,
     deleteStudent,
+    enrollments,
+    loadingEnrollments,
+    errorEnrollments,
+    loadEnrollments,
+    enrollStudent,
+    updateEnrollment,
+    removeEnrollment,
+    isAlreadyEnrolled,
     addActivity
   };
 
