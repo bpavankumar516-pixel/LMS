@@ -20,6 +20,7 @@ import Students from './pages/students/Students';
 import Instructors from './pages/instructors/Instructors';
 import InstructorProfile from './pages/instructors/InstructorProfile';
 import Enrollments from './pages/enrollments/Enrollments';
+import LearningProgress from './pages/progress/LearningProgress';
 import Assignments from './pages/assignments/Assignments';
 import Reports from './pages/reports/Reports';
 import Settings from './pages/settings/Settings';
@@ -57,6 +58,7 @@ function App() {
                 <Route path="/instructors" element={<Instructors />} />
                 <Route path="/instructors/:id" element={<InstructorProfile />} />
                 <Route path="/enrollments" element={<Enrollments />} />
+                <Route path="/progress" element={<LearningProgress />} />
                 <Route path="/assignments" element={<Assignments />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />

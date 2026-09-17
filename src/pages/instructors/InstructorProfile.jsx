@@ -29,7 +29,8 @@ import {
   Share2,
   MessageSquare,
   CheckCircle2,
-  UserCheck
+  UserCheck,
+  GraduationCap
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -40,13 +41,14 @@ const InstructorProfile = () => {
     instructors,
     courses,
     students,
+    enrollments = [],
     loadingInstructors,
     updateInstructor,
     deleteInstructor,
     assignCoursesToInstructor
   } = useLMS();
 
-  // Active Tab State: 'overview' | 'courses' | 'reviews' | 'schedule'
+  // Active Tab State: 'overview' | 'courses' | 'students' | 'schedule'
   const [activeTab, setActiveTab] = useState('overview');
 
   // Modal States
@@ -56,15 +58,6 @@ const InstructorProfile = () => {
 
   // Selected courses for assign modal
   const [selectedCourseIds, setSelectedCourseIds] = useState([]);
-
-  // Helpful count state for student reviews
-  const [helpfulCounts, setHelpfulCounts] = useState({
-    1: 14,
-    2: 9,
-    3: 6,
-    4: 3
-  });
-  const [likedReviews, setLikedReviews] = useState({});
 
   // React Hook Form for Edit Profile
   const {
@@ -88,59 +81,63 @@ const InstructorProfile = () => {
     'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=300&auto=format&fit=crop&q=80'
   ];
 
-  // Find target instructor by ID
+  // Find target instructor by ID with flexible & robust matching
   const instructor = useMemo(() => {
-    return instructors.find((inst) => inst.id.toString() === id?.toString());
+    if (!instructors || instructors.length === 0) return null;
+    if (!id) return instructors[0];
+
+    const cleanId = id.toString().trim().toLowerCase();
+
+    // 1. Direct ID match
+    let found = instructors.find(
+      (inst) => inst && inst.id && inst.id.toString().trim().toLowerCase() === cleanId
+    );
+    if (found) return found;
+
+    // 2. Loose ID match (e.g. '1' vs 'inst-1')
+    const strippedId = cleanId.replace('inst-', '');
+    found = instructors.find((inst) => {
+      if (!inst || !inst.id) return false;
+      const strippedInstId = inst.id.toString().trim().toLowerCase().replace('inst-', '');
+      return strippedInstId === strippedId;
+    });
+    if (found) return found;
+
+    // 3. Match by name slug
+    found = instructors.find((inst) => {
+      if (!inst || !inst.name) return false;
+      return inst.name.toLowerCase().replace(/\s+/g, '-').includes(cleanId);
+    });
+    if (found) return found;
+
+    // 4. Safe fallback
+    return instructors[0];
   }, [instructors, id]);
 
-  // Resolve assigned course objects
+  // Resolve assigned course objects safely
   const assignedCourses = useMemo(() => {
-    if (!instructor || !instructor.assignedCourseIds) return [];
-    return courses.filter((c) => instructor.assignedCourseIds.includes(c.id.toString()));
+    if (!instructor || !instructor.assignedCourseIds || !Array.isArray(instructor.assignedCourseIds)) return [];
+    const assignedIdsStr = instructor.assignedCourseIds.map((cId) => (cId || '').toString());
+    return (courses || []).filter((c) => c && c.id && assignedIdsStr.includes(c.id.toString()));
   }, [courses, instructor]);
 
-  // Dummy verified student reviews generator based on instructor name
-  const studentReviews = useMemo(() => {
+  // Resolve students enrolled in courses taught by this instructor safely
+  const instructorEnrollments = useMemo(() => {
     if (!instructor) return [];
-    return [
-      {
-        id: 1,
-        studentName: 'Aarav Sharma',
-        studentAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-        rating: 5,
-        date: '2 days ago',
-        courseName: assignedCourses[0]?.title || 'Full Stack Web Development',
-        comment: `${instructor.name} is an exceptional mentor! Explains complex concepts with real-world industry examples that are very easy to follow.`
-      },
-      {
-        id: 2,
-        studentName: 'Priya Patel',
-        studentAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-        rating: 5,
-        date: '1 week ago',
-        courseName: assignedCourses[1]?.title || 'React & Redux Masterclass',
-        comment: `Outstanding teaching methodology. Always available during office hours and provides super detailed feedback on project assignments.`
-      },
-      {
-        id: 3,
-        studentName: 'Rohan Verma',
-        studentAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
-        rating: 4.5,
-        date: '2 weeks ago',
-        courseName: assignedCourses[0]?.title || 'Web Architecture',
-        comment: `Great practical insights. Learned how real software systems are designed and deployed in production.`
-      },
-      {
-        id: 4,
-        studentName: 'Ananya Reddy',
-        studentAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
-        rating: 5,
-        date: '1 month ago',
-        courseName: assignedCourses[2]?.title || 'Database Engineering',
-        comment: `Very engaging lectures and hands-on coding exercises. Highly recommend taking any course taught by ${instructor.name}!`
-      }
-    ];
-  }, [instructor, assignedCourses]);
+    const instIdStr = (instructor.id || '').toString();
+    const instNameLower = (instructor.name || '').toLowerCase();
+    const assignedCourseIds = Array.isArray(instructor.assignedCourseIds)
+      ? instructor.assignedCourseIds.map((cId) => (cId || '').toString())
+      : [];
+
+    return (enrollments || []).filter((e) => {
+      if (!e) return false;
+      const courseMatch = e.courseId && assignedCourseIds.includes(e.courseId.toString());
+      const instIdMatch = e.instructorId && e.instructorId.toString() === instIdStr;
+      const instNameMatch = e.instructorName && e.instructorName.toLowerCase() === instNameLower;
+      return courseMatch || instIdMatch || instNameMatch;
+    });
+  }, [enrollments, instructor]);
 
   // Office hours schedule mock
   const officeHoursSchedule = [
@@ -159,7 +156,6 @@ const InstructorProfile = () => {
       experience: instructor.experience,
       specialization: instructor.specialization,
       rating: instructor.rating,
-      studentsTaught: instructor.studentsTaught,
       image: instructor.image,
       bio: instructor.bio
     });
@@ -407,20 +403,7 @@ const InstructorProfile = () => {
           </div>
 
           {/* Key KPI Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Students Taught</p>
-                <h4 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5 flex items-baseline gap-1">
-                  <span>{instructor.studentsTaught}</span>
-                  <span className="text-xs font-semibold text-slate-400">/ {students.length || 30} Total</span>
-                </h4>
-              </div>
-              <div className="p-2.5 bg-sky-500/10 text-sky-600 rounded-xl">
-                <Users className="w-5 h-5" />
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Faculty Rating</p>
@@ -484,15 +467,15 @@ const InstructorProfile = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('reviews')}
+          onClick={() => setActiveTab('students')}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-            activeTab === 'reviews'
+            activeTab === 'students'
               ? 'bg-[#10B981] text-white shadow-xs'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
           }`}
         >
-          <MessageSquare className="w-4 h-4" />
-          <span>Student Reviews ({studentReviews.length})</span>
+          <Users className="w-4 h-4" />
+          <span>Enrolled Students ({instructorEnrollments.length})</span>
         </button>
 
         <button
@@ -741,106 +724,127 @@ const InstructorProfile = () => {
         </div>
       )}
 
-      {/* TAB CONTENT 3: STUDENT REVIEWS */}
-      {activeTab === 'reviews' && (
+      {/* TAB CONTENT: ENROLLED STUDENTS */}
+      {activeTab === 'students' && (
         <div className="space-y-6 animate-fadeIn">
-          {/* Ratings Overview Card */}
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="text-center md:text-left space-y-1">
-              <h3 className="text-3xl font-extrabold text-slate-900 flex items-center justify-center md:justify-start gap-2">
-                <span>{instructor.rating}</span>
-                <Star className="w-7 h-7 fill-amber-500 text-amber-500" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                <Users className="w-5 h-5 text-emerald-600" />
+                <span>Enrolled Students ({instructorEnrollments.length})</span>
               </h3>
-              <p className="text-xs font-bold text-slate-600">Faculty Satisfaction Rating</p>
-              <p className="text-[11px] text-slate-400">Based on verified student evaluations across all assigned courses</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Students currently taking courses instructed by {instructor.name}.
+              </p>
             </div>
 
-            {/* Distribution Bar */}
-            <div className="w-full md:w-80 space-y-1.5 text-xs text-slate-600">
-              <div className="flex items-center gap-2">
-                <span className="w-8 font-bold text-right">5 ★</span>
-                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-amber-500 h-full w-[90%] rounded-full"></div>
-                </div>
-                <span className="w-8 font-semibold text-slate-400">90%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-8 font-bold text-right">4 ★</span>
-                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-amber-500 h-full w-[8%] rounded-full"></div>
-                </div>
-                <span className="w-8 font-semibold text-slate-400">8%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-8 font-bold text-right">3 ★</span>
-                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-amber-500 h-full w-[2%] rounded-full"></div>
-                </div>
-                <span className="w-8 font-semibold text-slate-400">2%</span>
-              </div>
+            <div className="px-3.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 font-bold text-xs flex items-center gap-2 self-start sm:self-auto">
+              <GraduationCap className="w-4 h-4 text-[#10B981]" />
+              <span>{instructorEnrollments.length} Active Enrolled Students</span>
             </div>
           </div>
 
-          {/* Reviews List */}
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Verified Student Feedback ({studentReviews.length})
-            </h4>
+          {instructorEnrollments.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {instructorEnrollments.map((enr) => {
+                const studentObj = students.find((s) => s.id.toString() === enr.studentId?.toString());
+                const avatarUrl = enr.studentAvatar || studentObj?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(enr.studentName)}&background=10B981&color=fff`;
+                const pct = enr.progress || 0;
 
-            <div className="space-y-4">
-              {studentReviews.map((rev) => (
-                <div key={rev.id} className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={rev.studentAvatar}
-                        alt={rev.studentName}
-                        className="w-10 h-10 rounded-full object-cover ring-2 ring-emerald-500/20"
-                      />
-                      <div>
-                        <p className="font-bold text-xs text-slate-900">{rev.studentName}</p>
-                        <p className="text-[10px] text-slate-400">{rev.courseName} &bull; {rev.date}</p>
+                return (
+                  <div
+                    key={enr.id}
+                    className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      {/* Student Avatar & Basic Info */}
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={avatarUrl}
+                          alt={enr.studentName}
+                          className="w-12 h-12 rounded-2xl object-cover ring-2 ring-emerald-500/20 shrink-0"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(enr.studentName)}&background=10B981&color=fff`;
+                          }}
+                        />
+                        <div className="overflow-hidden">
+                          <h4 className="font-extrabold text-slate-900 text-sm truncate">
+                            {enr.studentName}
+                          </h4>
+                          <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                            {enr.studentEmail}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Course Link & Tag */}
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-bold text-[10px] rounded-md">
+                          {enr.courseCategory || 'Course'}
+                        </span>
+                        <p className="font-bold text-xs text-slate-800 line-clamp-1">{enr.courseTitle}</p>
+                        <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          Enrolled on {enr.enrollmentDate}
+                        </p>
+                      </div>
+
+                      {/* Course Progress */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-600 text-[11px]">Learning Progress</span>
+                          <span className="font-extrabold text-slate-900">{pct}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-emerald-400 to-[#10B981] h-full rounded-full transition-all duration-300"
+                            style={{ width: `${pct}%` }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 text-amber-500">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-3.5 h-3.5 ${
-                            i < Math.floor(rev.rating) ? 'fill-amber-500 text-amber-500' : 'text-slate-200'
-                          }`}
-                        />
-                      ))}
+                    {/* Card Footer */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <span
+                        className={`px-2.5 py-1 text-[10px] font-extrabold rounded-lg ${
+                          enr.status === 'Completed' || pct === 100
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : enr.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {enr.status === 'Completed' || pct === 100 ? '🎓 Completed' : enr.status || 'Active'}
+                      </span>
+
+                      <Link
+                        to={`/students/${enr.studentId}`}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Student Profile</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Link>
                     </div>
                   </div>
-
-                  <p className="text-xs text-slate-700 leading-relaxed">{rev.comment}</p>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-400">
-                    <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Verified Enrolled Student
-                    </span>
-
-                    <button
-                      onClick={() => handleToggleHelpful(rev.id)}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                        likedReviews[rev.id]
-                          ? 'bg-emerald-50 text-emerald-700 font-bold'
-                          : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                      }`}
-                    >
-                      <ThumbsUp className="w-3 h-3" />
-                      <span>Helpful ({helpfulCounts[rev.id] || 0})</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 space-y-3">
+              <Users className="w-12 h-12 text-slate-300 mx-auto" />
+              <h4 className="text-base font-bold text-slate-800">No Enrolled Students Found</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                There are currently no students enrolled in courses assigned to {instructor.name}.
+              </p>
+            </div>
+          )}
         </div>
       )}
+
+      {/* TAB CONTENT: OFFICE HOURS & SCHEDULE */}
 
       {/* TAB CONTENT 4: OFFICE HOURS & SCHEDULE */}
       {activeTab === 'schedule' && (
@@ -977,36 +981,18 @@ const InstructorProfile = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Rating (out of 5)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    max="5"
-                    {...register('rating')}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-amber-600 focus:border-[#10B981] focus:outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Students Taught (Max 30)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="30"
-                    {...register('studentsTaught', {
-                      max: { value: 30, message: 'Students taught cannot exceed total system students (30)' }
-                    })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:border-[#10B981] focus:outline-hidden"
-                  />
-                  {errors.studentsTaught && <p className="text-xs text-rose-500 mt-1">{errors.studentsTaught.message}</p>}
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Rating (out of 5)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="5"
+                  {...register('rating')}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-amber-600 focus:border-[#10B981] focus:outline-hidden"
+                />
               </div>
 
               <div>

@@ -53,33 +53,33 @@ export const LMSProvider = ({ children }) => {
       id: 1,
       type: 'user',
       title: 'New student registered',
-      detail: 'Rahul Kumar',
-      time: '2 hours ago',
+      detail: 'Rahul Sharma',
+      time: '15 mins ago',
       color: 'bg-emerald-500/10 text-emerald-600'
     },
     {
       id: 2,
       type: 'enrollment',
-      title: 'Course enrolled',
-      detail: 'Web Development by Priya Sharma',
-      time: '3 hours ago',
-      color: 'bg-emerald-500/10 text-emerald-600'
+      title: 'Course Enrolled',
+      detail: 'Full Stack Web Development',
+      time: '1 hour ago',
+      color: 'bg-teal-500/10 text-teal-600'
     },
     {
       id: 3,
-      type: 'assignment',
-      title: 'Assignment submitted',
-      detail: 'JavaScript Basics by Arjun Reddy',
-      time: '5 hours ago',
-      color: 'bg-sky-500/10 text-sky-600'
+      type: 'instructor',
+      title: 'Instructor Profile Verified',
+      detail: 'Dr. Emily Carter (Full Stack)',
+      time: '3 hours ago',
+      color: 'bg-purple-500/10 text-purple-600'
     },
     {
       id: 4,
-      type: 'instructor',
-      title: 'New Instructor added',
-      detail: 'Sneha Patel',
-      time: '6 hours ago',
-      color: 'bg-purple-500/10 text-purple-600'
+      type: 'course',
+      title: 'New Course Published',
+      detail: 'Data Science & AI Masterclass',
+      time: '5 hours ago',
+      color: 'bg-sky-500/10 text-sky-600'
     }
   ]);
 
@@ -357,6 +357,11 @@ export const LMSProvider = ({ children }) => {
       return false;
     }
 
+    // Automatically resolve assigned instructor for the selected course
+    const inst = instructors.find((i) => i.assignedCourseIds?.includes(course.id.toString())) ||
+                 instructors.find((i) => i.name.toLowerCase() === course.instructor?.toLowerCase()) ||
+                 { id: 'inst-1', name: course.instructor || 'Dr. Emily Carter' };
+
     const newEnrollment = {
       id: `enr-${Date.now()}`,
       studentId: student.id,
@@ -367,6 +372,8 @@ export const LMSProvider = ({ children }) => {
       courseTitle: course.title,
       courseCategory: course.category,
       coursePrice: course.price,
+      instructorId: inst.id,
+      instructorName: inst.name,
       enrollmentDate: enrollmentDate || new Date().toISOString().split('T')[0],
       status: status || 'Active',
       progress: parseInt(progress) || 0
@@ -377,8 +384,8 @@ export const LMSProvider = ({ children }) => {
     saveEnrollmentsToStorage(updated);
     setStats((prev) => ({ ...prev, enrolledCourses: updated.length }));
 
-    addActivity('Course Enrollment', `${student.name} enrolled in ${course.title}`, 'enrollment');
-    toast.success(`Successfully enrolled "${student.name}" into "${course.title}"!`);
+    addActivity('Course Enrollment', `${student.name} enrolled in ${course.title} (Faculty: ${inst.name})`, 'enrollment');
+    toast.success(`Successfully enrolled "${student.name}" into "${course.title}" (Faculty: ${inst.name})!`);
     return true;
   };
 
@@ -428,6 +435,17 @@ export const LMSProvider = ({ children }) => {
     setActivities((prev) => [newAct, ...prev]);
   };
 
+  const removeActivity = (id) => {
+    const updated = activities.filter((act) => act.id !== id);
+    setActivities(updated);
+    toast.info('Activity item removed from log.');
+  };
+
+  const clearActivities = () => {
+    setActivities([]);
+    toast.info('Recent activity log cleared.');
+  };
+
   const value = {
     stats,
     activities,
@@ -464,7 +482,9 @@ export const LMSProvider = ({ children }) => {
     updateEnrollment,
     removeEnrollment,
     isAlreadyEnrolled,
-    addActivity
+    addActivity,
+    removeActivity,
+    clearActivities
   };
 
   return <LMSContext.Provider value={value}>{children}</LMSContext.Provider>;

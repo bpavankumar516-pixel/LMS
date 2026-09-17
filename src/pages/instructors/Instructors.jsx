@@ -136,7 +136,6 @@ const Instructors = () => {
       experience: '5 Years',
       specialization: 'Full Stack Development',
       rating: 4.8,
-      studentsTaught: 24,
       image: avatarPresets[0],
       bio: '',
       assignedCourseIds: []
@@ -154,7 +153,6 @@ const Instructors = () => {
       experience: inst.experience,
       specialization: inst.specialization,
       rating: inst.rating,
-      studentsTaught: inst.studentsTaught,
       image: inst.image,
       bio: inst.bio,
       assignedCourseIds: inst.assignedCourseIds || []
@@ -437,20 +435,13 @@ const Instructors = () => {
                     </div>
 
                     {/* Stats Pill Row */}
-                    <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-center">
-                      <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Students Taught</p>
-                        <p className="font-extrabold text-slate-800 text-sm">{inst.studentsTaught?.toLocaleString()}</p>
-                      </div>
-                      <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Assigned Courses</p>
-                        <p className="font-extrabold text-indigo-600 text-sm">{assignedCourses.length} Courses</p>
-                      </div>
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Assigned Courses</span>
+                      <span className="font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-100">{assignedCourses.length} Courses</span>
                     </div>
 
                     {/* Assigned Courses Chips */}
-                    <div className="mt-4 space-y-1.5">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Courses:</p>
+                    <div className="mt-3 space-y-1.5">
                       <div className="flex flex-wrap gap-1.5">
                         {assignedCourses.length > 0 ? (
                           assignedCourses.map((c) => (
@@ -540,7 +531,6 @@ const Instructors = () => {
                           />
                           <div>
                             <p className="font-bold text-slate-900">{inst.name}</p>
-                            <p className="text-[11px] text-slate-400">{inst.studentsTaught} Students Taught</p>
                           </div>
                         </div>
                       </td>
@@ -768,37 +758,19 @@ const Instructors = () => {
                 </div>
               </div>
 
-              {/* Rating & Students Taught */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Rating (out of 5)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    max="5"
-                    {...register('rating')}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-amber-600 focus:border-[#10B981] focus:outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Students Taught (Max 30)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="30"
-                    {...register('studentsTaught', {
-                      max: { value: 30, message: 'Students taught cannot exceed total system students (30)' }
-                    })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:border-[#10B981] focus:outline-hidden"
-                  />
-                  {errors.studentsTaught && <p className="text-xs text-rose-500 mt-1">{errors.studentsTaught.message}</p>}
-                </div>
+              {/* Rating */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Rating (out of 5)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="5"
+                  {...register('rating')}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-amber-600 focus:border-[#10B981] focus:outline-hidden"
+                />
               </div>
 
               {/* Profile Image & Avatar Preset Selector */}
@@ -974,14 +946,10 @@ const Instructors = () => {
             </div>
 
             {/* Details Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center">
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Experience</p>
                 <p className="font-extrabold text-slate-900 text-sm mt-0.5">{profileInstructor.experience}</p>
-              </div>
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Students Taught</p>
-                <p className="font-extrabold text-sky-600 text-sm mt-0.5">{profileInstructor.studentsTaught?.toLocaleString()}</p>
               </div>
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Assigned Courses</p>

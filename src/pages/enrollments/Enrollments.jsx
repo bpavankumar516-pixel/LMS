@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useLMS } from '../../context/LMSContext';
 import {
@@ -26,11 +27,13 @@ import {
   AlertCircle,
   Check,
   Sparkles,
-  Sliders
+  Sliders,
+  GraduationCap
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const Enrollments = () => {
+  const navigate = useNavigate();
   const {
     enrollments,
     loadingEnrollments,
@@ -38,6 +41,7 @@ const Enrollments = () => {
     loadEnrollments,
     students,
     courses,
+    instructors,
     enrollStudent,
     updateEnrollment,
     removeEnrollment,
