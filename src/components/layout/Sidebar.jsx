@@ -13,7 +13,8 @@ import {
   LogOut,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Award
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -45,17 +46,29 @@ const Sidebar = ({ isCollapsed, mobileOpen, onCloseMobile, onToggleCollapse }) =
     navigate('/login');
   };
 
-  const navItems = [
+  const isStudentRole = user?.role === 'Student';
+
+  const adminNavItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Courses', path: '/courses', icon: BookOpen },
     { name: 'Students', path: '/students', icon: Users },
-    { name: 'Instructors', path: '/instructors', icon: GraduationCap },
-    { name: 'Enrollments', path: '/enrollments', icon: BookmarkCheck },
     { name: 'Learning Progress', path: '/progress', icon: TrendingUp },
+    { name: 'Enrollments', path: '/enrollments', icon: BookmarkCheck },
+    { name: 'Instructors', path: '/instructors', icon: GraduationCap },
     { name: 'Assignments & Quizzes', path: '/assignments', icon: FileCheck },
     { name: 'Reports & Analytics', path: '/reports', icon: BarChart3 },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
+
+  const studentNavItems = [
+    { name: 'My Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'My Courses', path: '/courses', icon: BookOpen },
+    { name: 'My Learning Progress', path: '/progress', icon: TrendingUp },
+    { name: 'My Certificates', path: '/certificates', icon: Award },
+    { name: 'My Profile & Settings', path: '/settings', icon: Settings },
+  ];
+
+  const navItems = isStudentRole ? studentNavItems : adminNavItems;
 
   return (
     <>

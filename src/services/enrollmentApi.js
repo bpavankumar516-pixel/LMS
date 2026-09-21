@@ -12,6 +12,42 @@ export const getEnrollmentsFromStorage = async (students = [], courses = []) => 
     if (students.length > 0 && courses.length > 0) {
       const seedEnrollments = [
         {
+          id: 'enr-pavan-1',
+          studentId: 'st-pavan',
+          studentName: 'Pavan Kumar',
+          studentEmail: 'pavan@gmail.com',
+          studentAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+          courseId: courses[0]?.id || '1',
+          courseTitle: courses[0]?.title || 'Full Stack Web Development',
+          courseCategory: courses[0]?.category || 'Programming',
+          coursePrice: courses[0]?.price || 49.99,
+          instructorId: 'inst-1',
+          instructorName: 'Dr. Emily Carter',
+          enrollmentDate: '2026-07-01',
+          status: 'Active',
+          progress: 70,
+          completedLessons: 7,
+          pendingLessons: 3
+        },
+        {
+          id: 'enr-pavan-2',
+          studentId: 'st-pavan',
+          studentName: 'Pavan Kumar',
+          studentEmail: 'pavan@gmail.com',
+          studentAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+          courseId: courses[1]?.id || '2',
+          courseTitle: courses[1]?.title || 'Data Science & AI Masterclass',
+          courseCategory: courses[1]?.category || 'Data Science',
+          coursePrice: courses[1]?.price || 39.99,
+          instructorId: 'inst-2',
+          instructorName: 'Sarah Wilson',
+          enrollmentDate: '2026-07-05',
+          status: 'Completed',
+          progress: 100,
+          completedLessons: 10,
+          pendingLessons: 0
+        },
+        {
           id: 'enr-101',
           studentId: students[0]?.id || '1',
           studentName: students[0]?.name || 'Rahul Sharma',

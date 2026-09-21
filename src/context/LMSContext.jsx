@@ -8,6 +8,18 @@ import {
 } from '../services/studentApi';
 import { getEnrollmentsFromStorage, saveEnrollmentsToStorage } from '../services/enrollmentApi';
 import { getInstructorsFromStorage, saveInstructorsToStorage } from '../services/instructorApi';
+import {
+  getAssignmentsFromStorage,
+  saveAssignmentsToStorage,
+  getSubmissionsFromStorage,
+  saveSubmissionsToStorage
+} from '../services/assignmentApi';
+import {
+  getQuizzesFromStorage,
+  saveQuizzesToStorage,
+  getQuizAttemptsFromStorage,
+  saveQuizAttemptsToStorage
+} from '../services/quizApi';
 import { toast } from 'react-toastify';
 
 const LMSContext = createContext();
@@ -34,6 +46,16 @@ export const LMSProvider = ({ children }) => {
   const [enrollments, setEnrollments] = useState([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(true);
   const [errorEnrollments, setErrorEnrollments] = useState(null);
+
+  // Assignment State (Module 8)
+  const [assignments, setAssignments] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(true);
+
+  // Quiz & Exam State (Module 8)
+  const [quizzes, setQuizzes] = useState([]);
+  const [quizAttempts, setQuizAttempts] = useState([]);
+  const [loadingQuizzes, setLoadingQuizzes] = useState(true);
 
   // Stats
   const [stats, setStats] = useState({
@@ -118,6 +140,8 @@ export const LMSProvider = ({ children }) => {
     setLoadingStudents(true);
     setLoadingInstructors(true);
     setLoadingEnrollments(true);
+    setLoadingAssignments(true);
+    setLoadingQuizzes(true);
 
     try {
       const loadedCourses = await getCoursesFromMockApi();
@@ -139,12 +163,26 @@ export const LMSProvider = ({ children }) => {
       setEnrollments(loadedEnrollments);
       setStats((prev) => ({ ...prev, enrolledCourses: loadedEnrollments.length }));
       setLoadingEnrollments(false);
+
+      const loadedAssignments = await getAssignmentsFromStorage(loadedCourses);
+      setAssignments(loadedAssignments);
+      const loadedSubmissions = await getSubmissionsFromStorage();
+      setSubmissions(loadedSubmissions);
+      setLoadingAssignments(false);
+
+      const loadedQuizzes = await getQuizzesFromStorage(loadedCourses);
+      setQuizzes(loadedQuizzes);
+      const loadedAttempts = await getQuizAttemptsFromStorage();
+      setQuizAttempts(loadedAttempts);
+      setLoadingQuizzes(false);
     } catch (err) {
       console.error('Error initializing LMS data:', err);
       setLoadingCourses(false);
       setLoadingStudents(false);
       setLoadingInstructors(false);
       setLoadingEnrollments(false);
+      setLoadingAssignments(false);
+      setLoadingQuizzes(false);
     }
   };
 
@@ -215,6 +253,7 @@ export const LMSProvider = ({ children }) => {
   };
 
   const updateCourse = (id, updatedFields) => {
+    const targetCourse = courses.find((c) => c.id.toString() === id.toString());
     const updated = courses.map((c) =>
       c.id.toString() === id.toString()
         ? { ...c, ...updatedFields, price: parseFloat(updatedFields.price) || c.price }
@@ -222,6 +261,7 @@ export const LMSProvider = ({ children }) => {
     );
     setCourses(updated);
     saveCoursesToStorage(updated);
+    addActivity('Course Updated', updatedFields.title || targetCourse?.title || 'Course Details Updated', 'course');
     toast.success('Course updated successfully!');
   };
 
@@ -231,6 +271,7 @@ export const LMSProvider = ({ children }) => {
     setCourses(updated);
     saveCoursesToStorage(updated);
     setStats((prev) => ({ ...prev, totalCourses: updated.length }));
+    addActivity('Course Deleted', courseToDelete?.title || 'Course Removed', 'course');
     toast.info(`Course "${courseToDelete?.title || ''}" deleted.`);
   };
 
@@ -253,12 +294,14 @@ export const LMSProvider = ({ children }) => {
 
   const updateStudent = async (id, updatedFields) => {
     try {
+      const targetStudent = students.find((s) => s.id.toString() === id.toString());
       await updateStudentApi(id, updatedFields);
       const updated = students.map((s) =>
         s.id.toString() === id.toString() ? { ...s, ...updatedFields } : s
       );
       setStudents(updated);
       localStorage.setItem('lms_students', JSON.stringify(updated));
+      addActivity('Student Updated', updatedFields.name || targetStudent?.name || 'Student Profile Updated', 'user');
       toast.success('Student record updated successfully!');
     } catch (err) {
       toast.error('Failed to update student.');
@@ -273,6 +316,17 @@ export const LMSProvider = ({ children }) => {
       setStudents(updated);
       localStorage.setItem('lms_students', JSON.stringify(updated));
       setStats((prev) => ({ ...prev, totalStudents: updated.length }));
+
+      // Clean up associated enrollments safely to maintain data integrity
+      if (studentToDelete) {
+        const cleanedEnrollments = enrollments.filter(
+          (e) => String(e.studentId) !== String(id) && e.studentEmail?.toLowerCase() !== studentToDelete.email?.toLowerCase()
+        );
+        setEnrollments(cleanedEnrollments);
+        saveEnrollmentsToStorage(cleanedEnrollments);
+      }
+
+      addActivity('Student Removed', studentToDelete?.name || 'Student Record Removed', 'user');
       toast.info(`Student "${studentToDelete?.name || ''}" deleted.`);
     } catch (err) {
       toast.error('Failed to delete student.');
@@ -305,6 +359,7 @@ export const LMSProvider = ({ children }) => {
   };
 
   const updateInstructor = (id, updatedFields) => {
+    const targetInst = instructors.find((i) => i.id.toString() === id.toString());
     const updated = instructors.map((inst) =>
       inst.id.toString() === id.toString()
         ? { ...inst, ...updatedFields }
@@ -312,6 +367,7 @@ export const LMSProvider = ({ children }) => {
     );
     setInstructors(updated);
     saveInstructorsToStorage(updated);
+    addActivity('Instructor Profile Updated', updatedFields.name || targetInst?.name || 'Faculty Member Updated', 'instructor');
     toast.success('Instructor profile updated!');
   };
 
@@ -321,6 +377,7 @@ export const LMSProvider = ({ children }) => {
     setInstructors(updated);
     saveInstructorsToStorage(updated);
     setStats((prev) => ({ ...prev, totalInstructors: updated.length }));
+    addActivity('Instructor Removed', instToDelete?.name || 'Faculty Member Removed', 'instructor');
     toast.info(`Instructor "${instToDelete?.name || ''}" removed.`);
   };
 
@@ -337,23 +394,42 @@ export const LMSProvider = ({ children }) => {
   };
 
   // Module 5: Course Enrollment Handlers & Status Updates
-  const isAlreadyEnrolled = (studentId, courseId) => {
+  const isAlreadyEnrolled = (studentId, courseId, studentEmail = '') => {
     return enrollments.some(
-      (e) => e.studentId.toString() === studentId.toString() && e.courseId.toString() === courseId.toString()
+      (e) =>
+        String(e.courseId) === String(courseId) &&
+        (String(e.studentId) === String(studentId) ||
+          (studentEmail && e.studentEmail?.toLowerCase() === studentEmail.toLowerCase()))
     );
   };
 
-  const enrollStudent = (studentId, courseId, enrollmentDate, status = 'Active', progress = 0) => {
-    const student = students.find((s) => s.id.toString() === studentId.toString());
-    const course = courses.find((c) => c.id.toString() === courseId.toString());
+  const enrollStudent = (studentDataOrId, courseId, enrollmentDate, status = 'Active', progress = 0) => {
+    let student = null;
+    let studentId = '';
+    let studentEmail = '';
 
-    if (!student || !course) {
-      toast.error('Please select both a valid student and a valid course.');
+    if (typeof studentDataOrId === 'object' && studentDataOrId !== null) {
+      student = studentDataOrId;
+      studentId = student.id || student.studentId || 'st-pavan';
+      studentEmail = student.email || '';
+    } else {
+      studentId = studentDataOrId;
+      student = students.find((s) => String(s.id) === String(studentId) || s.email?.toLowerCase() === String(studentId).toLowerCase());
+      if (!student) {
+        student = { id: studentId, name: 'Student Member', email: String(studentId) };
+      }
+      studentEmail = student.email || '';
+    }
+
+    const course = courses.find((c) => String(c.id) === String(courseId));
+
+    if (!course) {
+      toast.error('Selected course was not found.');
       return false;
     }
 
-    if (isAlreadyEnrolled(studentId, courseId)) {
-      toast.warning(`Student "${student.name}" is ALREADY enrolled in "${course.title}". Duplicate enrollment prevented!`);
+    if (isAlreadyEnrolled(studentId, courseId, studentEmail)) {
+      toast.warning(`You are ALREADY enrolled in "${course.title}". Duplicate enrollment prevented!`);
       return false;
     }
 
@@ -364,9 +440,9 @@ export const LMSProvider = ({ children }) => {
 
     const newEnrollment = {
       id: `enr-${Date.now()}`,
-      studentId: student.id,
-      studentName: student.name,
-      studentEmail: student.email,
+      studentId: student.id || studentId,
+      studentName: student.name || 'Student Member',
+      studentEmail: student.email || studentEmail || 'student@gmail.com',
       studentAvatar: student.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
       courseId: course.id,
       courseTitle: course.title,
@@ -384,13 +460,13 @@ export const LMSProvider = ({ children }) => {
     saveEnrollmentsToStorage(updated);
     setStats((prev) => ({ ...prev, enrolledCourses: updated.length }));
 
-    addActivity('Course Enrollment', `${student.name} enrolled in ${course.title} (Faculty: ${inst.name})`, 'enrollment');
-    toast.success(`Successfully enrolled "${student.name}" into "${course.title}" (Faculty: ${inst.name})!`);
+    addActivity('Course Enrollment', `${newEnrollment.studentName} enrolled in ${course.title}`, 'enrollment');
+    toast.success(`Successfully enrolled in "${course.title}"!`);
     return true;
   };
 
   // Edit Enrollment Handler
-  const updateEnrollment = (id, updatedFields) => {
+  const updateEnrollment = (id, updatedFields, silent = false) => {
     const updated = enrollments.map((e) => {
       if (e.id.toString() === id.toString()) {
         const newProgress = parseInt(updatedFields.progress) || e.progress || 0;
@@ -410,7 +486,9 @@ export const LMSProvider = ({ children }) => {
 
     setEnrollments(updated);
     saveEnrollmentsToStorage(updated);
-    toast.success('Enrollment details updated!');
+    if (!silent) {
+      toast.success('Enrollment details updated!');
+    }
   };
 
   const removeEnrollment = (enrollmentId) => {
@@ -444,6 +522,173 @@ export const LMSProvider = ({ children }) => {
   const clearActivities = () => {
     setActivities([]);
     toast.info('Recent activity log cleared.');
+  };
+
+  // --- Module 8: Assignment Handlers ---
+  const addAssignment = (data) => {
+    const newAssignment = {
+      id: `asg-${Date.now()}`,
+      title: data.title,
+      courseId: data.courseId,
+      courseTitle: data.courseTitle || 'General Course',
+      instructorName: data.instructorName || 'Dr. Emily Carter',
+      deadline: data.deadline || '2026-10-15',
+      totalMarks: Number(data.totalMarks) || 100,
+      status: 'Active',
+      instructions: data.instructions || '',
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    const updated = [newAssignment, ...assignments];
+    setAssignments(updated);
+    saveAssignmentsToStorage(updated);
+    addActivity('New Assignment Published', `"${newAssignment.title}" for ${newAssignment.courseTitle}`, 'course');
+    toast.success('Assignment created successfully!');
+  };
+
+  const updateAssignment = (id, updatedData) => {
+    const updated = assignments.map((asg) => (asg.id === id ? { ...asg, ...updatedData } : asg));
+    setAssignments(updated);
+    saveAssignmentsToStorage(updated);
+    toast.success('Assignment updated successfully!');
+  };
+
+  const deleteAssignment = (id) => {
+    const updated = assignments.filter((asg) => asg.id !== id);
+    setAssignments(updated);
+    saveAssignmentsToStorage(updated);
+    toast.info('Assignment removed.');
+  };
+
+  const submitAssignment = (subData) => {
+    const existingIndex = submissions.findIndex(
+      (s) => s.assignmentId === subData.assignmentId && (s.studentEmail === subData.studentEmail || s.studentId === subData.studentId)
+    );
+
+    const newSub = {
+      id: subData.id || `sub-${Date.now()}`,
+      assignmentId: subData.assignmentId,
+      studentId: subData.studentId,
+      studentName: subData.studentName,
+      studentEmail: subData.studentEmail,
+      submissionText: subData.submissionText || '',
+      fileUrl: subData.fileUrl || '',
+      submittedAt: new Date().toLocaleString(),
+      status: 'Submitted',
+      marksAwarded: null,
+      totalMarks: subData.totalMarks || 100,
+      feedback: ''
+    };
+
+    let updated;
+    if (existingIndex >= 0) {
+      updated = [...submissions];
+      updated[existingIndex] = newSub;
+    } else {
+      updated = [newSub, ...submissions];
+    }
+
+    setSubmissions(updated);
+    saveSubmissionsToStorage(updated);
+    addActivity('Assignment Submitted', `${subData.studentName} submitted work for assignment`, 'user');
+    toast.success('Assignment submitted successfully!');
+  };
+
+  const gradeSubmission = (submissionId, marksAwarded, feedback) => {
+    const updated = submissions.map((sub) => {
+      if (sub.id === submissionId) {
+        return {
+          ...sub,
+          status: 'Graded',
+          marksAwarded: Number(marksAwarded),
+          feedback: feedback || 'Graded by instructor'
+        };
+      }
+      return sub;
+    });
+    setSubmissions(updated);
+    saveSubmissionsToStorage(updated);
+    toast.success('Submission graded successfully!');
+  };
+
+  // --- Module 8: Quiz & Exam Handlers ---
+  const addQuiz = (data) => {
+    const newQuiz = {
+      id: `qz-${Date.now()}`,
+      title: data.title,
+      courseId: data.courseId,
+      courseTitle: data.courseTitle || 'General Course',
+      instructorName: data.instructorName || 'Dr. Emily Carter',
+      durationMinutes: Number(data.durationMinutes) || 15,
+      passingMarks: Number(data.passingMarks) || 70,
+      totalQuestions: data.questions?.length || 0,
+      published: data.published ?? true,
+      description: data.description || '',
+      questions: data.questions || []
+    };
+    const updated = [newQuiz, ...quizzes];
+    setQuizzes(updated);
+    saveQuizzesToStorage(updated);
+    addActivity('New Exam Created', `"${newQuiz.title}" published with ${newQuiz.questions.length} questions`, 'course');
+    toast.success('Quiz/Exam created successfully!');
+  };
+
+  const updateQuiz = (id, updatedData) => {
+    const updated = quizzes.map((qz) =>
+      qz.id === id
+        ? {
+            ...qz,
+            ...updatedData,
+            totalQuestions: updatedData.questions ? updatedData.questions.length : qz.totalQuestions
+          }
+        : qz
+    );
+    setQuizzes(updated);
+    saveQuizzesToStorage(updated);
+    toast.success('Quiz updated successfully!');
+  };
+
+  const deleteQuiz = (id) => {
+    const updated = quizzes.filter((qz) => qz.id !== id);
+    setQuizzes(updated);
+    saveQuizzesToStorage(updated);
+    toast.info('Quiz removed.');
+  };
+
+  const togglePublishQuiz = (id) => {
+    const updated = quizzes.map((qz) => (qz.id === id ? { ...qz, published: !qz.published } : qz));
+    setQuizzes(updated);
+    saveQuizzesToStorage(updated);
+    const target = updated.find((q) => q.id === id);
+    toast.success(`Quiz status changed to ${target?.published ? 'Published' : 'Draft'}`);
+  };
+
+  const submitQuizAttempt = (attemptData) => {
+    const newAttempt = {
+      id: `att-${Date.now()}`,
+      quizId: attemptData.quizId,
+      quizTitle: attemptData.quizTitle,
+      studentId: attemptData.studentId,
+      studentName: attemptData.studentName,
+      studentEmail: attemptData.studentEmail,
+      scorePercentage: attemptData.scorePercentage,
+      correctAnswersCount: attemptData.correctAnswersCount,
+      totalQuestions: attemptData.totalQuestions,
+      passed: attemptData.passed,
+      timeTakenSeconds: attemptData.timeTakenSeconds,
+      submittedAt: new Date().toLocaleString()
+    };
+
+    const updated = [newAttempt, ...quizAttempts];
+    setQuizAttempts(updated);
+    saveQuizAttemptsToStorage(updated);
+
+    addActivity(
+      'Exam Attempt Completed',
+      `${attemptData.studentName} scored ${attemptData.scorePercentage}% on ${attemptData.quizTitle}`,
+      attemptData.passed ? 'enrollment' : 'user'
+    );
+
+    return newAttempt;
   };
 
   const value = {
@@ -482,6 +727,22 @@ export const LMSProvider = ({ children }) => {
     updateEnrollment,
     removeEnrollment,
     isAlreadyEnrolled,
+    assignments,
+    submissions,
+    loadingAssignments,
+    addAssignment,
+    updateAssignment,
+    deleteAssignment,
+    submitAssignment,
+    gradeSubmission,
+    quizzes,
+    quizAttempts,
+    loadingQuizzes,
+    addQuiz,
+    updateQuiz,
+    deleteQuiz,
+    togglePublishQuiz,
+    submitQuizAttempt,
     addActivity,
     removeActivity,
     clearActivities

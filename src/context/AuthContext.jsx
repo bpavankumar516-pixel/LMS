@@ -72,7 +72,70 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user: userPayload };
       }
 
-      // 2. Default Admin Credentials (alex@edulearn.com / admin123)
+      // 2. Student Portal Demo Logins
+      if (usernameOrEmail.toLowerCase() === 'pavan@gmail.com' && (password === 'student123' || password.length >= 4)) {
+        const studentUser = {
+          id: 'st-pavan',
+          studentId: 'st-pavan',
+          name: 'Pavan Kumar',
+          email: 'pavan@gmail.com',
+          role: 'Student',
+          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80'
+        };
+        setUser(studentUser);
+        setLoading(false);
+        return { success: true, user: studentUser };
+      }
+
+      if (usernameOrEmail.toLowerCase() === 'rahul@gmail.com' && (password === 'student123' || password.length >= 4)) {
+        const studentUser = {
+          id: '1',
+          studentId: '1',
+          name: 'Rahul Sharma',
+          email: 'rahul@gmail.com',
+          role: 'Student',
+          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'
+        };
+        setUser(studentUser);
+        setLoading(false);
+        return { success: true, user: studentUser };
+      }
+
+      if (usernameOrEmail.toLowerCase() === 'priya@gmail.com' && (password === 'student123' || password.length >= 4)) {
+        const studentUser = {
+          id: '2',
+          studentId: '2',
+          name: 'Priya Patel',
+          email: 'priya@gmail.com',
+          role: 'Student',
+          avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80'
+        };
+        setUser(studentUser);
+        setLoading(false);
+        return { success: true, user: studentUser };
+      }
+
+      // Check if user is logging in as a student from local API students list
+      const savedStudents = JSON.parse(localStorage.getItem('lms_students') || '[]');
+      const foundStudent = savedStudents.find(
+        (s) => s.email?.toLowerCase() === usernameOrEmail.toLowerCase()
+      );
+
+      if (foundStudent) {
+        const studentUser = {
+          id: foundStudent.id,
+          studentId: String(foundStudent.id),
+          name: foundStudent.name,
+          email: foundStudent.email,
+          role: 'Student',
+          avatar: foundStudent.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'
+        };
+        setUser(studentUser);
+        setLoading(false);
+        return { success: true, user: studentUser };
+      }
+
+      // 3. Default Admin Credentials (alex@edulearn.com / admin123)
       if ((usernameOrEmail.toLowerCase() === 'alex@edulearn.com' || usernameOrEmail.toLowerCase() === 'alexmorgan') && password === 'admin123') {
         const demoAdmin = {
           id: 101,
@@ -86,13 +149,14 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user: demoAdmin };
       }
 
-      // 3. General credential validation check
-      if (usernameOrEmail && password.length >= 6) {
+      // 4. General credential validation check
+      if (usernameOrEmail && password.length >= 4) {
+        const isStudent = usernameOrEmail.includes('student') || usernameOrEmail.endsWith('@gmail.com');
         const validUser = {
           id: Date.now(),
           name: usernameOrEmail.split('@')[0].replace('.', ' '),
           email: usernameOrEmail.includes('@') ? usernameOrEmail : `${usernameOrEmail}@edulearn.com`,
-          role: 'Administrator',
+          role: isStudent ? 'Student' : 'Administrator',
           avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'
         };
         setUser(validUser);
@@ -150,6 +214,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUserProfile = (updatedFields) => {
+    setUser((prev) => {
+      const updated = { ...prev, ...updatedFields };
+      localStorage.setItem('lms_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('lms_user');
@@ -164,6 +236,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUserProfile,
     setError
   };
 

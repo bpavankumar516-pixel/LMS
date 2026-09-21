@@ -17,6 +17,7 @@ const Login = () => {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [portalRole, setPortalRole] = useState('admin'); // 'admin' | 'student'
 
   const {
     register,
@@ -31,16 +32,24 @@ const Login = () => {
     }
   });
 
-  const fillDemoCredentials = () => {
+  const handleSelectAdminPortal = () => {
+    setPortalRole('admin');
     setValue('email', 'alex@edulearn.com');
     setValue('password', 'admin123');
-    toast.info('Loaded demo credentials');
+    toast.info('Switched to Admin Portal');
+  };
+
+  const handleSelectStudentPortal = () => {
+    setPortalRole('student');
+    setValue('email', 'pavan@gmail.com');
+    setValue('password', 'student123');
+    toast.info('Switched to Student Portal');
   };
 
   const onSubmit = async (data) => {
     const res = await login(data.email, data.password, data.remember);
     if (res.success) {
-      toast.success(`Welcome back, ${res.user.name}!`);
+      toast.success(`Welcome to EduLearn, ${res.user.name}! (${res.user.role || 'User'})`);
       navigate('/dashboard');
     } else {
       toast.error(res.error || 'Login failed');
@@ -49,7 +58,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen w-full flex bg-slate-50 font-sans">
-      {/* LEFT SIDE: Full-Screen Image Hero (Hidden on mobile, 50% on lg) */}
+      {/* LEFT SIDE: Full-Screen Image Hero */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden min-h-screen">
         <img
           src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1600&auto=format&fit=crop"
@@ -73,7 +82,7 @@ const Login = () => {
               Master New Skills with EduLearn
             </h2>
             <p className="text-slate-200 text-sm">
-              Your complete online learning and education management platform.
+              Your complete online learning and education management platform for both Administrators & Students.
             </p>
           </div>
 
@@ -88,7 +97,7 @@ const Login = () => {
         <div className="max-w-md w-full mx-auto my-auto py-4">
           
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6">
             <div className="flex items-center gap-2 mb-4 lg:hidden">
               <div className="bg-[#10B981] p-2 rounded-xl text-white">
                 <GraduationCap className="w-5 h-5" />
@@ -97,20 +106,35 @@ const Login = () => {
             </div>
 
             <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Sign In</h2>
-            <p className="text-xs text-slate-500 mt-1">Enter your credentials to access your dashboard</p>
+            <p className="text-xs text-slate-500 mt-1">Select your portal mode to log in to EduLearn</p>
           </div>
 
-          {/* Demo Credentials Card */}
-          <div
-            onClick={fillDemoCredentials}
-            className="mb-6 p-3.5 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 rounded-xl cursor-pointer transition-colors flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2 text-xs text-emerald-900">
-              <Sparkles className="w-4 h-4 text-[#10B981]" />
-              <span>
-                Demo: <strong className="font-semibold">alex@edulearn.com</strong> / <strong className="font-semibold">admin123</strong>
-              </span>
-            </div>
+          {/* PORTAL ROLE SWITCHER TABS */}
+          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl mb-6">
+            <button
+              type="button"
+              onClick={handleSelectAdminPortal}
+              className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                portalRole === 'admin'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4 text-[#10B981]" />
+              <span>Admin Portal</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSelectStudentPortal}
+              className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                portalRole === 'student'
+                  ? 'bg-[#10B981] text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-emerald-200" />
+              <span>Student Portal</span>
+            </button>
           </div>
 
           {/* Login Form */}

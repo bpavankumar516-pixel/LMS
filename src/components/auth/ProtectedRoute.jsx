@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
 
-const ProtectedRoute = () => {
-  const { isAuthenticated, loading } = useAuth();
+const ProtectedRoute = ({ allowedRoles = [] }) => {
+  const { user, isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
+      toast.warn(`Access Restricted: Administrator privileges required for this page.`);
+    }
+  }, [isAuthenticated, allowedRoles, user]);
 
   if (loading) {
     return (
@@ -16,7 +23,16 @@ const ProtectedRoute = () => {
     );
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Check Role-Based Access Control
+  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

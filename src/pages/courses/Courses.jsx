@@ -18,10 +18,14 @@ import {
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 
 const Courses = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Administrator';
+
   const {
     courses,
     loadingCourses,
@@ -156,13 +160,15 @@ const Courses = () => {
             Display, search, filter, and manage online learning courses.
           </p>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2.5 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 self-start sm:self-center cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Course</span>
-        </button>
+        {isAdmin && (
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2.5 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 self-start sm:self-center cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Course</span>
+          </button>
+        )}
       </div>
 
       {/* Filter & Search Toolbar */}
@@ -331,22 +337,31 @@ const Courses = () => {
                   <p className="text-lg font-extrabold text-[#10B981]">${c.price}</p>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                {isAdmin ? (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={(e) => handleOpenEdit(e, c)}
+                      title="Edit Course"
+                      className="p-2 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => handleOpenDelete(e, c.id)}
+                      title="Delete Course"
+                      className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    onClick={(e) => handleOpenEdit(e, c)}
-                    title="Edit Course"
-                    className="p-2 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-colors"
+                    onClick={() => navigate(`/courses/${c.id}`)}
+                    className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-[#10B981] rounded-xl text-xs font-bold transition-colors cursor-pointer"
                   >
-                    <Edit2 className="w-4 h-4" />
+                    View Details
                   </button>
-                  <button
-                    onClick={(e) => handleOpenDelete(e, c.id)}
-                    title="Delete Course"
-                    className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                )}
               </div>
             </div>
           ))}

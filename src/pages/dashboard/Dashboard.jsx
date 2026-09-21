@@ -52,7 +52,10 @@ const Dashboard = () => {
     clearActivities,
     courses = [],
     instructors = [],
-    students = []
+    students = [],
+    enrollments = [],
+    updateEnrollment,
+    addAssignment
   } = useLMS();
 
   // Quick Action Modal states: 'course' | 'student' | 'instructor' | 'assignment' | null
@@ -231,8 +234,15 @@ const Dashboard = () => {
       });
     } else if (modalType === 'assignment') {
       const targetCourse = courses.find((c) => c.id.toString() === data.courseId?.toString());
-      addActivity('New Quiz / Assignment Created', `${data.title} (${targetCourse?.title || 'LMS Course'})`, 'assignment');
-      toast.success(`Assignment "${data.title}" published successfully!`);
+      addAssignment({
+        title: data.title,
+        courseId: data.courseId,
+        courseTitle: targetCourse?.title || 'LMS Course',
+        instructorName: targetCourse?.instructor || 'Dr. Emily Carter',
+        deadline: data.dueDate || '2026-09-30',
+        totalMarks: data.totalMarks || 100,
+        instructions: data.instructions || ''
+      });
     }
 
     setModalType(null);
@@ -258,6 +268,305 @@ const Dashboard = () => {
       act.title.toLowerCase().includes(activitySearch.toLowerCase()) ||
       act.detail.toLowerCase().includes(activitySearch.toLowerCase())
   );
+
+  // Student-specific calculations when logged in as a student
+  const isStudentRole = user?.role === 'Student';
+  const currentStudentEmail = user?.email?.toLowerCase() || '';
+
+  const studentEnrollments = useMemo(() => {
+    if (!enrollments) return [];
+    return enrollments.filter(
+      (e) =>
+        e.studentEmail?.toLowerCase() === currentStudentEmail ||
+        String(e.studentId) === String(user?.studentId || user?.id)
+    );
+  }, [enrollments, currentStudentEmail, user]);
+
+  const studentAvgProgress = useMemo(() => {
+    if (studentEnrollments.length === 0) return 0;
+    const sum = studentEnrollments.reduce((acc, curr) => acc + (curr.progress || 0), 0);
+    return Math.round(sum / studentEnrollments.length);
+  }, [studentEnrollments]);
+
+  const studentCompletedLessons = useMemo(() => {
+    return studentEnrollments.reduce(
+      (acc, curr) => acc + (curr.completedLessons !== undefined ? curr.completedLessons : Math.round(((curr.progress || 0) / 100) * 10)),
+      0
+    );
+  }, [studentEnrollments]);
+
+  const studentCertificatesCount = useMemo(() => {
+    return studentEnrollments.filter((e) => e.progress === 100).length;
+  }, [studentEnrollments]);
+
+  // If user is logged in as a Student, render dedicated Student Dashboard
+  if (isStudentRole) {
+    return (
+      <div className="space-y-6 sm:space-y-8 animate-fadeIn pb-12">
+        {/* Student Welcome Banner */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Welcome back, {user?.name || 'Student'}! 👋
+              </h1>
+              <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-full flex items-center gap-1.5 border border-emerald-200">
+                <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+                STUDENT PORTAL
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Track your enrolled courses, lesson completion progress, upcoming live class streams, and certificates.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 self-start md:self-center">
+            <div className="px-3.5 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{currentDateStr}</span>
+            </div>
+            <button
+              onClick={() => navigate('/progress')}
+              className="px-4 py-2 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>My Progress</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Student KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {/* My Enrolled Courses */}
+          <div
+            onClick={() => navigate('/courses')}
+            className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">My Enrolled Courses</p>
+                <h3 className="text-3xl font-extrabold text-slate-900 mt-2 group-hover:text-[#10B981] transition-colors">
+                  {studentEnrollments.length}
+                </h3>
+              </div>
+              <div className="p-3 bg-emerald-500/10 text-[#10B981] rounded-2xl group-hover:scale-110 transition-transform">
+                <BookOpen className="w-6 h-6" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between text-xs text-emerald-600 font-medium pt-2 border-t border-slate-100">
+              <span className="font-bold">Active Learning</span>
+              <span className="text-[11px] font-extrabold text-slate-400 group-hover:text-[#10B981]">View &rarr;</span>
+            </div>
+          </div>
+
+          {/* Overall Progress */}
+          <div
+            onClick={() => navigate('/progress')}
+            className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Avg Completion</p>
+                <h3 className="text-3xl font-extrabold text-slate-900 mt-2 group-hover:text-teal-600 transition-colors">
+                  {studentAvgProgress}%
+                </h3>
+              </div>
+              <div className="p-3 bg-teal-500/10 text-teal-600 rounded-2xl group-hover:scale-110 transition-transform">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between text-xs text-teal-600 font-medium pt-2 border-t border-slate-100">
+              <span className="font-bold">Curriculum Rate</span>
+              <span className="text-[11px] font-extrabold text-slate-400 group-hover:text-teal-600">Track &rarr;</span>
+            </div>
+          </div>
+
+          {/* Completed Lessons */}
+          <div
+            onClick={() => navigate('/progress')}
+            className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Completed Lessons</p>
+                <h3 className="text-3xl font-extrabold text-slate-900 mt-2 group-hover:text-amber-600 transition-colors">
+                  {studentCompletedLessons}
+                </h3>
+              </div>
+              <div className="p-3 bg-amber-500/10 text-amber-600 rounded-2xl group-hover:scale-110 transition-transform">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between text-xs text-amber-600 font-medium pt-2 border-t border-slate-100">
+              <span className="font-bold">Finished Modules</span>
+              <span className="text-[11px] font-extrabold text-slate-400 group-hover:text-amber-600">Details &rarr;</span>
+            </div>
+          </div>
+
+          {/* Certificates */}
+          <div
+            onClick={() => navigate('/progress')}
+            className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">My Certificates</p>
+                <h3 className="text-3xl font-extrabold text-slate-900 mt-2 group-hover:text-purple-600 transition-colors">
+                  {studentCertificatesCount}
+                </h3>
+              </div>
+              <div className="p-3 bg-purple-500/10 text-purple-600 rounded-2xl group-hover:scale-110 transition-transform">
+                <Award className="w-6 h-6" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between text-xs text-purple-600 font-medium pt-2 border-t border-slate-100">
+              <span className="font-bold">100% Completed</span>
+              <span className="text-[11px] font-extrabold text-slate-400 group-hover:text-purple-600">Print &rarr;</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Student Enrolled Courses Grid & Live Class Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left 2 Cols: Enrolled Courses List */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-base font-extrabold text-slate-900">My Enrolled Courses</h2>
+                <p className="text-xs text-slate-500">Continue learning and tracking your syllabus progress</p>
+              </div>
+              <button
+                onClick={() => navigate('/courses')}
+                className="text-xs font-bold text-[#10B981] hover:text-emerald-700 transition-colors"
+              >
+                Browse Catalog &rarr;
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {studentEnrollments.length > 0 ? (
+                studentEnrollments.map((enr) => (
+                  <div
+                    key={enr.id}
+                    className="p-5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3 hover:bg-emerald-50/30 transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-md">
+                          {enr.courseCategory}
+                        </span>
+                        <h3 className="font-extrabold text-sm text-slate-900 mt-1">{enr.courseTitle}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">Faculty: {enr.instructorName}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-extrabold text-[#10B981] text-lg">{enr.progress}%</span>
+                        <p className="text-[10px] text-slate-400">Enrolled: {enr.enrollmentDate}</p>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-[#10B981] h-full rounded-full transition-all duration-500"
+                        style={{ width: `${enr.progress}%` }}
+                      ></div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <span className="text-slate-600 font-bold">
+                        {enr.completedLessons || Math.round(((enr.progress || 0) / 100) * 10)} / 10 Lessons Finished
+                      </span>
+                      <button
+                        onClick={() => navigate('/progress')}
+                        className="px-3.5 py-1.5 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                      >
+                        Resume Course &rarr;
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-8 bg-slate-50 rounded-2xl border border-slate-100 text-center space-y-2">
+                  <BookOpen className="w-8 h-8 text-slate-300 mx-auto" />
+                  <p className="font-bold text-slate-700 text-sm">No Active Enrollments</p>
+                  <p className="text-xs text-slate-400">Browse the course catalog and enroll in your first course.</p>
+                  <button
+                    onClick={() => navigate('/courses')}
+                    className="mt-2 px-4 py-2 bg-[#10B981] text-white font-bold text-xs rounded-xl cursor-pointer"
+                  >
+                    Browse Courses
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right 1 Col: Live Class Launcher & Activity */}
+          <div className="space-y-6">
+            {/* Live Class Session Stream */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                  <Video className="w-5 h-5 text-emerald-600" />
+                  <span>Today's Live Classes</span>
+                </h2>
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                  Ready
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {upcomingClasses.slice(0, 2).map((cls) => (
+                  <div key={cls.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md">
+                        {cls.room || 'Room 101'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium">{cls.time}</span>
+                    </div>
+                    <h4 className="font-extrabold text-xs text-slate-900">{cls.title}</h4>
+                    <p className="text-[11px] text-slate-500">Instructor: {cls.instructor}</p>
+
+                    <button
+                      onClick={() => setJoiningClass(cls)}
+                      className="w-full mt-2 py-2 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" />
+                      <span>Join Class Stream</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Student Quick Shortcuts */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+              <h2 className="text-base font-extrabold text-slate-900">Quick Shortcuts</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => navigate('/progress')}
+                  className="p-3.5 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/60 rounded-2xl text-left transition-colors cursor-pointer"
+                >
+                  <TrendingUp className="w-5 h-5 text-emerald-600 mb-1" />
+                  <div className="font-bold text-xs text-slate-900">Syllabus Progress</div>
+                  <div className="text-[10px] text-slate-500">View lessons</div>
+                </button>
+
+                <button
+                  onClick={() => navigate('/assignments')}
+                  className="p-3.5 bg-sky-50 hover:bg-sky-100/80 border border-sky-200/60 rounded-2xl text-left transition-colors cursor-pointer"
+                >
+                  <FilePlus className="w-5 h-5 text-sky-600 mb-1" />
+                  <div className="font-bold text-xs text-slate-900">Quizzes</div>
+                  <div className="text-[10px] text-slate-500">Submit work</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn pb-12">

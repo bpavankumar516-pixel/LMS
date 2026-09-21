@@ -22,6 +22,7 @@ import {
   Table,
   LayoutGrid
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useLMS } from '../../context/LMSContext';
 import { toast } from 'react-toastify';
 
@@ -41,7 +42,21 @@ const DEFAULT_SYLLABUS = [
 
 const LearningProgress = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { enrollments = [], updateEnrollment, loadEnrollments } = useLMS();
+
+  const isStudentRole = user?.role === 'Student';
+  const currentStudentEmail = user?.email?.toLowerCase() || '';
+
+  // Filter enrollments if logged in as Student
+  const targetEnrollments = useMemo(() => {
+    if (!isStudentRole) return enrollments;
+    return enrollments.filter(
+      (e) =>
+        e.studentEmail?.toLowerCase() === currentStudentEmail ||
+        String(e.studentId) === String(user?.studentId || user?.id)
+    );
+  }, [enrollments, isStudentRole, currentStudentEmail, user]);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,7 +74,7 @@ const LearningProgress = () => {
 
   // Calculated Progress Analytics per Enrollment
   const processedEnrollments = useMemo(() => {
-    return enrollments.map((enr) => {
+    return targetEnrollments.map((enr) => {
       const totalLessons = enr.totalLessons || 10;
       const progressPct = enr.progress || 0;
       
@@ -152,6 +167,11 @@ const LearningProgress = () => {
   // Handle Lesson Checkbox Toggle inside Modal
   const handleToggleLesson = (lessonIndex) => {
     if (!selectedEnrollment) return;
+
+    if (!isStudentRole) {
+      toast.info('Admin View Only: Lesson progress is updated in real time by enrolled students.');
+      return;
+    }
 
     const currentStates = [...(selectedEnrollment.lessonStates || DEFAULT_SYLLABUS.map((_, i) => i < selectedEnrollment.completedLessons))];
     currentStates[lessonIndex] = !currentStates[lessonIndex];
